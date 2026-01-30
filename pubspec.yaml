@@ -1,0 +1,66 @@
+name: gabitech_v2
+description: Gabitech CRM - Nova versao otimizada
+
+publish_to: 'none'
+
+version: 2.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management & DI
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Supabase
+  supabase_flutter: ^2.5.8
+
+  # Routing
+  go_router: ^14.2.3
+
+  # UI
+  google_fonts: ^6.1.0
+  cached_network_image: ^3.4.1
+  flutter_animate: ^4.5.0
+  fl_chart: ^0.68.0
+  lucide_icons: ^0.257.0
+  flutter_map: ^7.0.2
+  flutter_map_marker_cluster: ^1.2.0
+  latlong2: ^0.9.0
+  flutter_map_cancellable_tile_provider: ^3.0.2
+  showcaseview: ^5.0.1
+
+  # Utils
+  intl: ^0.20.2
+  equatable: ^2.0.7
+  easy_debounce: ^2.0.1
+  mask_text_input_formatter: ^2.9.0
+  timeago: ^3.6.1
+  url_launcher: ^6.3.1
+  file_picker: ^8.0.0
+
+  # Storage
+  shared_preferences: ^2.5.3
+  http: ^1.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.11
+  riverpod_generator: ^2.4.0
+  custom_lint: ^0.6.4
+  riverpod_lint: ^2.3.10
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
