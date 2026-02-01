@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'ui/pages/auth/login_page.dart';
+import 'ui/pages/auth/criar_conta_page.dart';
 import 'ui/pages/home/home_page.dart';
 import 'ui/pages/solicitacoes/solicitacoes_page.dart';
 import 'ui/pages/cidadaos/cidadaos_page.dart';
@@ -73,12 +74,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthenticated = session != null;
 
       final isOnLogin = state.matchedLocation == '/login';
+      final isOnCadastro = state.matchedLocation == '/criar-conta';
+      final forceLogin = state.uri.queryParameters['force'] == 'true';
 
-      if (!isAuthenticated && !isOnLogin) {
+      if (!isAuthenticated && !isOnLogin && !isOnCadastro) {
         return '/login';
       }
 
-      if (isAuthenticated && isOnLogin) {
+      if (isAuthenticated && isOnLogin && !forceLogin) {
         return '/';
       }
 
@@ -92,6 +95,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => NoTransitionPage(
           key: state.pageKey,
           child: const LoginPage(),
+        ),
+      ),
+      GoRoute(
+        path: '/criar-conta',
+        name: 'criar-conta',
+        pageBuilder: (context, state) => NoTransitionPage(
+          key: state.pageKey,
+          child: const CriarContaPage(),
         ),
       ),
 

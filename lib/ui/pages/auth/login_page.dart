@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
 import '../../../providers/core_providers.dart';
 import '../../theme/app_colors.dart';
 
@@ -46,6 +47,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       // Invalidate providers to refresh user data
       ref.invalidate(currentUserProvider);
       ref.invalidate(currentGabineteProvider);
+
+      if (mounted) {
+        context.go('/');
+      }
       
     } on AuthException catch (e) {
       setState(() {
@@ -62,6 +67,104 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         });
       }
     }
+  }
+
+  Future<void> _forgotPassword() async {
+    final supabase = Supabase.instance.client;
+    final emailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+    String? errorText;
+    bool sending = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Recuperar senha'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'E-mail',
+                      hintText: 'seu@email.com',
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      errorText!,
+                      style: TextStyle(color: AppColors.error),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                      sending ? null : () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: sending
+                      ? null
+                      : () async {
+                          final email = emailController.text.trim();
+                          if (email.isEmpty || !email.contains('@')) {
+                            setState(() {
+                              errorText = 'Informe um e-mail valido';
+                            });
+                            return;
+                          }
+                          setState(() {
+                            sending = true;
+                            errorText = null;
+                          });
+                          try {
+                            await supabase.auth.resetPasswordForEmail(email);
+                            if (!dialogContext.mounted) return;
+                            Navigator.pop(dialogContext, true);
+                          } on AuthException catch (e) {
+                            setState(() {
+                              errorText = _getErrorMessage(e.message);
+                              sending = false;
+                            });
+                          } catch (e) {
+                            setState(() {
+                              errorText =
+                                  'Erro ao solicitar recuperacao. Tente novamente.';
+                              sending = false;
+                            });
+                          }
+                        },
+                  child: sending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Enviar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    emailController.dispose();
+
+    if (!mounted || result != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Enviamos um link de recuperacao para o seu e-mail.'),
+      ),
+    );
   }
 
   String _getErrorMessage(String error) {
@@ -323,7 +426,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () {
-                              // TODO: Forgot password flow
+                              _forgotPassword();
                             },
                             child: const Text('Esqueceu a senha?'),
                           ),
@@ -355,8 +458,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                     ),
-                                  ),
+                            ),
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () => context.push('/criar-conta'),
+                          child: const Text('Criar conta'),
                         ),
                       ],
                     ),

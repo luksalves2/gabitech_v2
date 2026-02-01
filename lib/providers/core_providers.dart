@@ -4,6 +4,7 @@ import '../data/datasources/supabase_datasource.dart';
 import '../data/repositories/usuario_repository.dart';
 import '../data/repositories/gabinete_repository.dart';
 import '../data/repositories/cidadao_repository.dart';
+import '../data/repositories/cadastro_repository.dart';
 import '../data/repositories/solicitacao_repository.dart';
 import '../data/repositories/dashboard_repository.dart';
 import '../data/repositories/mensagem_repository.dart';
@@ -47,6 +48,11 @@ final gabineteRepositoryProvider = Provider<GabineteRepository>((ref) {
 final cidadaoRepositoryProvider = Provider<CidadaoRepository>((ref) {
   final datasource = ref.watch(supabaseDatasourceProvider);
   return CidadaoRepository(datasource);
+});
+
+final cadastroRepositoryProvider = Provider<CadastroRepository>((ref) {
+  final datasource = ref.watch(supabaseDatasourceProvider);
+  return CadastroRepository(datasource);
 });
 
 final solicitacaoRepositoryProvider = Provider<SolicitacaoRepository>((ref) {

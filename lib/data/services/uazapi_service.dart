@@ -37,62 +37,86 @@ class UazapiService {
   // INSTANCE MANAGEMENT
   // ============================================
 
-  /// Criar uma nova instância do WhatsApp
-  /// POST /instance/init
-  /// Body: { "nome": "nome_da_instancia" }
-  /// Returns: token da instância
-  Future<UazapiResponse<String>> criarInstancia({
+  /// Cria uma nova instância no primeiro acesso.
+  /// POST /instance/create
+  /// Headers: admintoken
+  /// Body: { "name": "<nome>", "systemName": "apilocal" }
+  Future<UazapiResponse<InstanceCreateResult>> criarInstancia({
     required String nome,
+    String systemName = 'apilocal',
   }) async {
     try {
       final response = await _client.post(
-        Uri.parse('$_baseUrl/instance/init'),
+        Uri.parse('$_baseUrl/instance/create'),
         headers: _headers(),
-        body: jsonEncode({'nome': nome}),
+        body: jsonEncode({
+          'name': nome,
+          'systemName': systemName,
+        }),
       );
 
       final data = jsonDecode(response.body);
-      
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final token = data['instance']?['token'] as String?;
-        if (token != null) {
-          return UazapiResponse.success(token);
-        }
-        return UazapiResponse.error('Token não encontrado na resposta');
+        return UazapiResponse.success(InstanceCreateResult.fromJson(data));
       }
-      
+
       return UazapiResponse.error(data['message'] ?? 'Erro ao criar instância');
     } catch (e) {
       return UazapiResponse.error('Erro de conexão: $e');
     }
   }
 
-  /// Conectar instância (gera paircode para parear WhatsApp)
-  /// POST /instance/connect
-  /// Headers: token (instance token)
-  /// Body: { "telefone": "5551999999999" }
-  /// Returns: paircode para parear
-  Future<UazapiResponse<String>> conectarInstancia({
+  /// Inicializa a instância no primeiro acesso.
+  /// POST /instance/init
+  /// Header: token (gabinete.token)
+  Future<UazapiResponse<bool>> initInstance({
     required String instanceToken,
-    required String telefone,
   }) async {
     try {
       final response = await _client.post(
+        Uri.parse('$_baseUrl/instance/init'),
+        headers: _headers(instanceToken: instanceToken),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return UazapiResponse.success(true);
+      }
+
+      final data = jsonDecode(response.body);
+      return UazapiResponse.error(data['message'] ?? 'Erro ao inicializar instância');
+    } catch (e) {
+      return UazapiResponse.error('Erro de conexão: $e');
+    }
+  }
+
+  /// Inicia a conexão.
+  /// POST /instance/connect
+  /// Headers: token (instance token)
+  /// Body opcional: { "phone": "..."} para pairing; omitido gera QR.
+  Future<UazapiResponse<InstanceStatus>> conectarInstancia({
+    required String instanceToken,
+    String? telefone,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      final phone = telefone?.trim();
+      if (phone != null && phone.isNotEmpty) {
+        body['phone'] = phone;
+      }
+
+      final response = await _client.post(
         Uri.parse('$_baseUrl/instance/connect'),
         headers: _headers(instanceToken: instanceToken),
-        body: jsonEncode({'telefone': telefone}),
+        body: body.isEmpty ? null : jsonEncode(body),
       );
 
       final data = jsonDecode(response.body);
-      
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final paircode = data['instance']?['paircode'] as String?;
-        if (paircode != null) {
-          return UazapiResponse.success(paircode);
-        }
-        return UazapiResponse.error('Paircode não encontrado na resposta');
+        return UazapiResponse.success(InstanceStatus.fromJson(data));
       }
-      
+
       return UazapiResponse.error(data['message'] ?? 'Erro ao conectar instância');
     } catch (e) {
       return UazapiResponse.error('Erro de conexão: $e');
@@ -117,6 +141,24 @@ class UazapiService {
       }
       
       return UazapiResponse.error(data['message'] ?? 'Erro ao verificar status');
+    } catch (e) {
+      return UazapiResponse.error('Erro de conexão: $e');
+    }
+  }
+
+  /// Desconectar instância
+  /// POST /instance/disconnect
+  Future<UazapiResponse<bool>> desconectarInstancia(String instanceToken) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/instance/disconnect'),
+        headers: _headers(instanceToken: instanceToken),
+      );
+      if (response.statusCode == 200) {
+        return UazapiResponse.success(true);
+      }
+      final data = jsonDecode(response.body);
+      return UazapiResponse.error(data['message'] ?? 'Erro ao desconectar instância');
     } catch (e) {
       return UazapiResponse.error('Erro de conexão: $e');
     }
@@ -782,21 +824,101 @@ class InstanceStatus {
   final String? phone;
   final String? name;
   final String? status;
+  final String? qr;
+  final String? pairingCode;
+  final Map<String, dynamic> raw;
 
   InstanceStatus({
     required this.connected,
     this.phone,
     this.name,
     this.status,
+    this.qr,
+    this.pairingCode,
+    this.raw = const {},
   });
 
   factory InstanceStatus.fromJson(Map<String, dynamic> json) {
     final instance = json['instance'] as Map<String, dynamic>?;
+    final root = instance ?? json;
+    final statusString = (root['status'] as String?)?.toLowerCase();
+
+    String? _extractQr(Map<String, dynamic> source) {
+      return source['qr'] as String? ??
+          source['qrcode'] as String? ??
+          source['qrCode'] as String? ??
+          source['qr_code'] as String? ??
+          source['qr_base64'] as String? ??
+          source['qrbase64'] as String?;
+    }
+
+    String? _extractPairing(Map<String, dynamic> source) {
+      return source['pairing_code'] as String? ??
+          source['pairingCode'] as String? ??
+          source['paircode'] as String?;
+    }
+
     return InstanceStatus(
-      connected: instance?['connected'] as bool? ?? false,
-      phone: instance?['phone'] as String?,
-      name: instance?['name'] as String?,
-      status: instance?['status'] as String?,
+      connected: root['connected'] as bool? ?? false,
+      phone: root['phone'] as String?,
+      name: root['name'] as String?,
+      status: statusString ?? (root['connected'] == true ? 'connected' : 'disconnected'),
+      qr: _extractQr(root),
+      pairingCode: _extractPairing(root),
+      raw: root,
+    );
+  }
+}
+
+class InstanceCreateResult {
+  final String? instanceId;
+  final String? instanceToken;
+  final String? token;
+  final String? name;
+  final String? paircode;
+  final String? qr;
+  final Map<String, dynamic> raw;
+
+  InstanceCreateResult({
+    this.instanceId,
+    this.instanceToken,
+    this.token,
+    this.name,
+    this.paircode,
+    this.qr,
+    this.raw = const {},
+  });
+
+  factory InstanceCreateResult.fromJson(Map<String, dynamic> json) {
+    final instance = json['instance'] as Map<String, dynamic>?;
+    final root = instance ?? const <String, dynamic>{};
+
+    String? _extractQr(Map<String, dynamic> source) {
+      return source['qrcode'] as String? ??
+          source['qr'] as String? ??
+          source['qrCode'] as String? ??
+          source['qr_code'] as String? ??
+          source['qr_base64'] as String? ??
+          source['qrbase64'] as String?;
+    }
+
+    String? _extractPaircode(Map<String, dynamic> source) {
+      return source['paircode'] as String? ??
+          source['pairingCode'] as String? ??
+          source['pairing_code'] as String?;
+    }
+
+    final instanceToken = root['token'] as String?;
+    final token = json['token'] as String?;
+
+    return InstanceCreateResult(
+      instanceId: root['id'] as String? ?? root['instance_id'] as String?,
+      instanceToken: instanceToken,
+      token: token,
+      name: root['name'] as String? ?? json['name'] as String?,
+      paircode: _extractPaircode(root),
+      qr: _extractQr(root),
+      raw: json,
     );
   }
 }
