@@ -1,0 +1,25 @@
+﻿# Flutter/Dart
+.dart_tool/
+.build/
+.buildlog/
+.packages
+.pub/
+
+# Build outputs
+build/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Web/Chrome debug profile
+.dart_tool/chrome-device/
+
+# Misc
+*.zip
+nul
